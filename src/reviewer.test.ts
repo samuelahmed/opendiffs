@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { parseReviewResponse } from "./reviewer";
+import { parseReviewResponse, parsePorcelainLines } from "./reviewer";
 import { ChangeContext, ReviewScope } from "./types";
 
 const stubChange: ChangeContext = {
@@ -30,6 +30,42 @@ const fullResponse = {
   breakingChanges: false,
   breakingChangeDetails: null,
 };
+
+describe("parsePorcelainLines", () => {
+  it("parses unstaged modified file (leading space)", () => {
+    const result = parsePorcelainLines(" M package.json\n");
+    assert.equal(result.length, 1);
+    assert.equal(result[0].file, "package.json");
+    assert.equal(result[0].status, "M");
+  });
+
+  it("parses staged modified file", () => {
+    const result = parsePorcelainLines("M  package.json\n");
+    assert.equal(result[0].file, "package.json");
+    assert.equal(result[0].status, "M");
+  });
+
+  it("parses untracked file", () => {
+    const result = parsePorcelainLines("?? new-file.ts\n");
+    assert.equal(result[0].file, "new-file.ts");
+    assert.equal(result[0].status, "??");
+  });
+
+  it("parses multiple files", () => {
+    const result = parsePorcelainLines(" M src/cli.ts\nA  src/new.ts\n?? tmp.log\n");
+    assert.equal(result.length, 3);
+    assert.equal(result[0].file, "src/cli.ts");
+    assert.equal(result[1].file, "src/new.ts");
+    assert.equal(result[1].status, "A");
+    assert.equal(result[2].file, "tmp.log");
+    assert.equal(result[2].status, "??");
+  });
+
+  it("handles empty output", () => {
+    assert.deepEqual(parsePorcelainLines(""), []);
+    assert.deepEqual(parsePorcelainLines("\n"), []);
+  });
+});
 
 describe("parseReviewResponse", () => {
   it("parses clean JSON", () => {

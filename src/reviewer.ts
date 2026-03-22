@@ -115,18 +115,22 @@ export async function getStagedFiles(cwd: string): Promise<string[]> {
   }
 }
 
+export function parsePorcelainLines(out: string): { file: string; status: string }[] {
+  return out
+    .replace(/\n$/, "")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const status = line.slice(0, 2).trim();
+      const file = line.slice(3);
+      return { file, status };
+    });
+}
+
 export async function getAllChangedFiles(cwd: string): Promise<{ file: string; status: string }[]> {
   try {
     const out = await exec("git", ["status", "--porcelain", "-u"], cwd);
-    return out
-      .trim()
-      .split("\n")
-      .filter(Boolean)
-      .map((line) => {
-        const status = line.slice(0, 2).trim();
-        const file = line.slice(3);
-        return { file, status };
-      });
+    return parsePorcelainLines(out);
   } catch {
     return [];
   }

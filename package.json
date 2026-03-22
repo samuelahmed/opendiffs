@@ -21,7 +21,16 @@
     "diff",
     "cli"
   ],
+  "author": "Sam Duval",
   "license": "MIT",
+  "files": [
+    "out/*.js",
+    "out/*.js.map",
+    "!out/*.test.js",
+    "!out/*.test.js.map",
+    ".opendiffs/prompt.md",
+    ".opendiffs/config.json"
+  ],
   "dependencies": {
     "@clack/prompts": "^0.11.0",
     "picocolors": "^1.1.0"
