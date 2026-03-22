@@ -190,7 +190,9 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
         try {
           const reportPath = saveReport(review, cwd);
           p.log.info(`Report saved: ${pc.dim(reportPath)}`);
-        } catch {}
+        } catch (err: any) {
+          p.log.warn(`Failed to save report: ${err.message}`);
+        }
       }
       if (pending.size > 0) s.start(spinnerText());
     } catch (err: any) {

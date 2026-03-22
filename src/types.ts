@@ -39,6 +39,8 @@ export interface Review {
 
 export type ReviewScope = "staged" | "file";
 
+export const VALID_PROVIDERS = ["claude", "codex"] as const;
+
 export const OPENDIFFS_DIR = ".opendiffs";
 export const REVIEWS_DIR = "reviews";
 export const PROMPT_FILE = "prompt.md";

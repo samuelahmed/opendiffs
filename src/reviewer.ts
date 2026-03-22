@@ -3,7 +3,7 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { ChangeContext, Review, ReviewScope, OPENDIFFS_DIR, REVIEWS_DIR } from "./types";
+import { ChangeContext, Review, ReviewScope, OPENDIFFS_DIR, REVIEWS_DIR, VALID_PROVIDERS } from "./types";
 import { buildPrompt } from "./prompt";
 import { loadCustomPrompt } from "./config";
 
@@ -135,6 +135,10 @@ export async function getAllChangedFiles(cwd: string): Promise<{ file: string; s
 // --- CLI config per provider ---
 
 function getCliArgs(provider: string): { cmd: string; args: string[] } {
+  if (!(VALID_PROVIDERS as readonly string[]).includes(provider)) {
+    throw new Error(`Unknown provider "${provider}". Valid providers: ${VALID_PROVIDERS.join(", ")}`);
+  }
+
   if (provider === "codex") {
     return { cmd: "codex", args: ["exec", "--full-auto", "-"] };
   }
