@@ -24,6 +24,10 @@
   ],
   "author": "Sam Duval",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samuelahmed/opendiffs"
+  },
   "files": [
     "out/src/*.js",
     "out/src/*.js.map",
