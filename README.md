@@ -1,46 +1,38 @@
 # OpenDiffs
 
-Structured code review using the AI tools you already have.
-
-Review your staged files or any individual changed file before you commit. OpenDiffs uses your existing Claude or Codex CLI to catch bugs, flag risks, and score your changes. No new accounts, no API keys — if you have Claude Code or Codex installed, you're ready to go.
-
-<!-- GIF: run opendiffs → select staged → fast-forward review → show result (~10s) -->
-
-## Install
+Structured code review from the terminal, powered by your existing AI agents.
 
 ```bash
 npm install -g opendiffs
 ```
 
-Requires Node.js 18+ and at least one AI CLI:
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `claude`
-- [OpenAI Codex](https://github.com/openai/codex) — `codex`
+Requires Node.js 18+ and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or [Codex](https://github.com/openai/codex).
+
+![opendiffs demo](assets/demo.gif)
+
+Review your staged changes or any individual file before you commit. Your agent reads the diff, explores your codebase for context, and gives you a structured review with a confidence score.
 
 ## How it works
 
-Run `opendiffs` and pick what to review:
+Stage your changes, then run `opendiffs`:
 
-<!-- screenshot: interactive menu showing "Review staged changes" and "Review a file..." -->
+```bash
+opendiffs
+```
 
-**Review staged changes** — reviews everything in your staging area as one diff, the same changes that would go into your next commit.
+From there, review all your staged changes or pick any individual file.
 
-**Review a file** — pick a changed file from the list and review it individually.
+Your agent reads the diff and checks your codebase. You get back a markdown review scored 1-10 with findings labeled **BUG**, **RISK**, or **NIT**.
 
-<!-- screenshot: file picker showing changed files -->
-
-Your agent reads the diff, explores your codebase for context (callers, types, tests), and returns a structured review with a confidence score, findings, and risk assessment.
-
-<!-- screenshot: review output (trimmed/clean example) -->
+Note: your agents are doing real work — this will use your plans.
 
 ## Reports
 
-Reviews are saved as markdown in `.opendiffs/reviews/`. Browse them anytime:
+Reviews are saved as markdown in `.opendiffs/reviews/`, organized by branch. Browse them anytime:
 
 ```bash
 opendiffs --reports
 ```
-
-<!-- screenshot: reports browser -->
 
 > `.opendiffs/` is automatically added to `.gitignore`.
 
@@ -50,10 +42,6 @@ opendiffs --reports
 opendiffs --settings
 ```
 
-Pick your agents, configure report saving, or customize the review prompt for your project.
-
-<!-- screenshot: settings menu -->
-
 | Setting | Options | Default |
 |---------|---------|---------|
 | **Providers** | `claude`, `codex`, or both in parallel | `claude` |
@@ -61,13 +49,13 @@ Pick your agents, configure report saving, or customize the review prompt for yo
 | **Max reports** | any number | `50` |
 | **Review prompt** | default or custom `.opendiffs/prompt.md` | default |
 
-## CLI reference
+## CLI
 
 ```
-opendiffs                    Run it — pick what to review
+opendiffs                    Interactive — pick what to review
+opendiffs --staged           Review staged changes directly
 opendiffs <file>             Review a specific file
-opendiffs --staged           Skip the menu, review staged changes
-opendiffs --provider claude  Pick your agent (or claude,codex for both)
+opendiffs --provider codex   Pick your agent (or claude,codex for both)
 opendiffs --settings         Configure providers, prompt, reports
 opendiffs --reports          Browse saved reviews
 ```
