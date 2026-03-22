@@ -1,0 +1,35 @@
+{
+  "name": "opendiffs",
+  "version": "1.0.0",
+  "description": "AI-powered code review from the terminal",
+  "bin": {
+    "opendiffs": "./out/cli.js"
+  },
+  "main": "./out/cli.js",
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "dev": "tsc -p ./ && node out/cli.js"
+  },
+  "keywords": [
+    "code-review",
+    "ai",
+    "claude",
+    "codex",
+    "git",
+    "diff",
+    "cli"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "picocolors": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
