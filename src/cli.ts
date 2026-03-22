@@ -2,15 +2,17 @@
 
 import * as p from "@clack/prompts";
 import pc from "picocolors";
-import { Config, ReviewScope } from "./types";
-import { loadConfig, saveConfig, getPromptPath, getReviewsDir } from "./config";
+import { Config, ReviewScope } from "./types.js";
+import { loadConfig, saveConfig, getPromptPath, getReviewsDir } from "./config.js";
 import * as fs from "fs";
 import * as path from "path";
-import { getDiff, getChangeInfo, getStagedFiles, getAllChangedFiles, callProvider, parseReviewResponse } from "./reviewer";
-import { saveReport, pruneReports, collectMdFiles } from "./report";
-import { formatReview, renderMarkdown } from "./format";
-import { DEFAULT_PROMPT } from "./prompt";
+import { fileURLToPath } from "url";
+import { getDiff, getChangeInfo, getStagedFiles, getAllChangedFiles, callProvider, extractScore, SCORE_REGEX } from "./reviewer.js";
+import { saveRawReport, pruneReports, collectMdFiles } from "./report.js";
+import { renderMarkdown } from "./format.js";
+import { DEFAULT_PROMPT } from "./prompt.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"));
 
 const cwd = process.cwd();
@@ -178,17 +180,17 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
   const promises = providersToRun.map(async (provider) => {
     try {
       const rawResult = await callProvider(cwd, diff, scope, provider);
-      const review = parseReviewResponse(rawResult, changeInfo, scope, provider);
+      const score = extractScore(rawResult);
 
       pending.delete(provider);
-      finished.push(`${provider} ${review.confidence}/10 ✓`);
+      finished.push(`${provider} ${score !== null ? `${score}/10 ` : ""}✓`);
 
       s.stop(spinnerText());
       console.log(pc.dim("─".repeat(60)));
-      console.log(formatReview(review));
+      console.log(renderMarkdown(rawResult));
       if (shouldSave) {
         try {
-          const reportPath = saveReport(review, cwd);
+          const reportPath = saveRawReport(rawResult, changeInfo, scope, provider, cwd);
           p.log.info(`Report saved: ${pc.dim(reportPath)}`);
         } catch (err: any) {
           p.log.warn(`Failed to save report: ${err.message}`);
@@ -341,7 +343,7 @@ async function browseReports() {
 
   const reportOptions = files.map((f) => {
     const content = fs.readFileSync(f.path, "utf-8");
-    const scoreMatch = content.match(/Confidence Score: (\d+)\/10/);
+    const scoreMatch = content.match(SCORE_REGEX);
     const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
     const scoreLabel = score !== null
       ? score >= 8 ? pc.green(`${score}/10`)

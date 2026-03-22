@@ -5,6 +5,7 @@
   "bin": {
     "opendiffs": "./out/cli.js"
   },
+  "type": "module",
   "main": "./out/cli.js",
   "scripts": {
     "build": "tsc -p ./",
@@ -33,6 +34,8 @@
   ],
   "dependencies": {
     "@clack/prompts": "^0.11.0",
+    "marked": "^12.0.2",
+    "marked-terminal": "^7.3.0",
     "picocolors": "^1.1.0"
   },
   "devDependencies": {

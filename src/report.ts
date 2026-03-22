@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as fs from "fs";
-import { Review } from "./types";
-import { getOpenDiffsDir, getReviewsDir, addToGitignore } from "./config";
+import { ChangeContext, ReviewScope } from "./types.js";
+import { getOpenDiffsDir, getReviewsDir, addToGitignore } from "./config.js";
 
 function slugify(text: string): string {
   return text
@@ -11,99 +11,14 @@ function slugify(text: string): string {
     .slice(0, 50);
 }
 
-export function generateMarkdown(review: Review): string {
-  const { change, findings } = review;
-  const date = new Date(review.timestamp).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const bugs = findings.filter((f) => f.severity === "bug").length;
-  const risks = findings.filter((f) => f.severity === "risk").length;
-  const nits = findings.filter((f) => f.severity === "nit").length;
-
-  let md = `# ${change.label}
-
-| | |
-|---|---|
-| **Branch** | \`${change.branch}\` |
-| **Author** | ${change.author} |
-| **Date** | ${date} |
-| **Scope** | ${review.reviewScope} |
-| **Provider** | ${review.provider} |
-| **Files changed** | ${change.filesChanged} (+${change.insertions} / -${change.deletions}) |
-
----
-
-## Summary
-
-${review.summary}
-
-## Confidence Score: ${review.confidence}/10
-
-${review.confidenceReason}
-
-## Key Changes
-
-${review.keyChanges.map((c) => `- ${c}`).join("\n")}
-
-## Risk Assessment
-
-${review.riskAssessment}
-`;
-
-  if (review.breakingChanges) {
-    md += `
-## Breaking Changes
-
-${review.breakingChangeDetails || "Breaking changes detected — review carefully."}
-`;
-  }
-
-  if (findings.length > 0) {
-    md += `
-## Findings
-
-| Severity | File | Line | Issue |
-|----------|------|------|-------|
-${findings
-  .map(
-    (f) =>
-      `| ${f.severity.toUpperCase()} | \`${f.file}\` | ${f.line || "-"} | **${f.title}**: ${f.detail} |`
-  )
-  .join("\n")}
-
-**Summary**: ${bugs} bug${bugs !== 1 ? "s" : ""}, ${risks} risk${risks !== 1 ? "s" : ""}, ${nits} nit${nits !== 1 ? "s" : ""}
-`;
-  } else {
-    md += `
-## Findings
-
-No issues found.
-`;
-  }
-
-  md += `
-## Files Changed
-
-| File | Overview |
-|------|----------|
-${review.filesOverview.map((f) => `| \`${f.file}\` | ${f.overview} |`).join("\n")}
-`;
-
-  md += `
----
-*Reviewed by OpenDiffs on ${date}*
-`;
-
-  return md;
-}
-
-export function saveReport(review: Review, workspaceRoot: string): string {
-  const branchDir = review.change.branch.replace(/\//g, path.sep);
+export function saveRawReport(
+  markdown: string,
+  changeInfo: ChangeContext,
+  scope: ReviewScope,
+  provider: string,
+  workspaceRoot: string,
+): string {
+  const branchDir = changeInfo.branch.replace(/\//g, path.sep);
   const openDiffsDir = getOpenDiffsDir(workspaceRoot);
   const firstTime = !fs.existsSync(openDiffsDir);
   const dir = path.join(getReviewsDir(workspaceRoot), branchDir);
@@ -114,15 +29,15 @@ export function saveReport(review: Review, workspaceRoot: string): string {
     addToGitignore(workspaceRoot);
   }
 
-  const ts = new Date(review.timestamp);
+  const ts = new Date();
   const dateStr = ts.toISOString().slice(0, 10);
   const timeStr = ts.toISOString().slice(11, 19).replace(/:/g, "");
-  const slug = slugify(review.change.label);
-  const providerSlug = review.provider && review.provider !== "default" ? `_${slugify(review.provider)}` : "";
+  const slug = slugify(changeInfo.label);
+  const providerSlug = provider ? `_${slugify(provider)}` : "";
   const filename = `${dateStr}_${timeStr}_${slug}${providerSlug}.md`;
 
   const filePath = path.join(dir, filename);
-  fs.writeFileSync(filePath, generateMarkdown(review), "utf-8");
+  fs.writeFileSync(filePath, markdown, "utf-8");
   return filePath;
 }
 

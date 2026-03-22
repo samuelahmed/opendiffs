@@ -1,88 +1,32 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { generateMarkdown } from "./report";
-import { Review } from "./types";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+import { saveRawReport } from "./report.js";
+import { ChangeContext } from "./types.js";
 
-function makeReview(overrides: Partial<Review> = {}): Review {
-  return {
-    change: {
-      label: "Staged changes",
-      author: "Alice",
-      date: "2026-01-15T10:00:00.000Z",
+describe("saveRawReport", () => {
+  it("saves markdown to disk and returns the path", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "opendiffs-test-"));
+    const change: ChangeContext = {
+      label: "staged changes",
+      author: "tester",
+      date: new Date().toISOString(),
       branch: "main",
-      filesChanged: 2,
-      insertions: 30,
-      deletions: 5,
-    },
-    summary: "Added auth middleware",
-    keyChanges: ["New auth check on /api routes", "Token refresh on 401"],
-    confidence: 8,
-    confidenceReason: "Verified callers and tests",
-    riskAssessment: "Low risk",
-    findings: [],
-    filesOverview: [{ file: "src/auth.ts", overview: "New middleware" }],
-    breakingChanges: false,
-    breakingChangeDetails: null,
-    timestamp: "2026-01-15T10:00:00.000Z",
-    reviewScope: "staged",
-    provider: "claude",
-    ...overrides,
-  };
-}
+      filesChanged: 1,
+      insertions: 5,
+      deletions: 2,
+    };
 
-describe("generateMarkdown", () => {
-  it("includes all review sections", () => {
-    const md = generateMarkdown(makeReview());
+    const md = "# Summary\nThis is a test review.\n## Confidence: 8/10\n";
+    const filePath = saveRawReport(md, change, "staged", "claude", tmpDir);
 
-    assert.ok(md.includes("# Staged changes"));
-    assert.ok(md.includes("**Branch** | `main`"));
-    assert.ok(md.includes("**Author** | Alice"));
-    assert.ok(md.includes("## Summary"));
-    assert.ok(md.includes("Added auth middleware"));
-    assert.ok(md.includes("## Confidence Score: 8/10"));
-    assert.ok(md.includes("## Key Changes"));
-    assert.ok(md.includes("- New auth check on /api routes"));
-    assert.ok(md.includes("## Risk Assessment"));
-    assert.ok(md.includes("## Files Changed"));
-    assert.ok(md.includes("`src/auth.ts`"));
-  });
+    assert.ok(fs.existsSync(filePath));
+    assert.equal(fs.readFileSync(filePath, "utf-8"), md);
+    assert.ok(filePath.endsWith(".md"));
+    assert.ok(filePath.includes("claude"));
 
-  it("includes findings table when findings exist", () => {
-    const md = generateMarkdown(makeReview({
-      findings: [
-        { file: "src/auth.ts", line: 42, severity: "bug", title: "Null access", detail: "token can be undefined" },
-        { file: "src/api.ts", severity: "nit", title: "Unused import", detail: "Remove it" },
-      ],
-    }));
-
-    assert.ok(md.includes("| BUG |"));
-    assert.ok(md.includes("| NIT |"));
-    assert.ok(md.includes("`src/auth.ts`"));
-    assert.ok(md.includes("| 42 |"));
-    assert.ok(md.includes("| - |")); // no line number
-    assert.ok(md.includes("1 bug, 1 risk, 1 nit") === false);
-    assert.ok(md.includes("1 bug"));
-  });
-
-  it("shows no issues message when no findings", () => {
-    const md = generateMarkdown(makeReview({ findings: [] }));
-
-    assert.ok(md.includes("No issues found."));
-  });
-
-  it("includes breaking changes section when present", () => {
-    const md = generateMarkdown(makeReview({
-      breakingChanges: true,
-      breakingChangeDetails: "Removed /v1/login endpoint",
-    }));
-
-    assert.ok(md.includes("## Breaking Changes"));
-    assert.ok(md.includes("Removed /v1/login endpoint"));
-  });
-
-  it("omits breaking changes section when none", () => {
-    const md = generateMarkdown(makeReview());
-
-    assert.ok(!md.includes("## Breaking Changes"));
+    fs.rmSync(tmpDir, { recursive: true });
   });
 });

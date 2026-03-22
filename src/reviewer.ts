@@ -3,9 +3,9 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { ChangeContext, Review, ReviewScope, OPENDIFFS_DIR, REVIEWS_DIR, VALID_PROVIDERS } from "./types";
-import { buildPrompt } from "./prompt";
-import { loadCustomPrompt } from "./config";
+import { ChangeContext, ReviewScope, OPENDIFFS_DIR, REVIEWS_DIR, VALID_PROVIDERS } from "./types.js";
+import { buildPrompt } from "./prompt.js";
+import { loadCustomPrompt } from "./config.js";
 
 // Track temp diff files so they can be cleaned up on unexpected exit
 const activeTempFiles = new Set<string>();
@@ -221,63 +221,14 @@ export function callProvider(
   });
 }
 
-// --- Parse response ---
+// --- Extract score from markdown ---
 
-export function parseReviewResponse(raw: string, changeInfo: ChangeContext, scope: ReviewScope, provider: string = ""): Review {
-  let jsonStr = raw.trim();
+export const SCORE_REGEX = /Confidence:?\s*(?:Score:?\s*)?(\d+)\s*\/\s*10/i;
 
-  const fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-  if (fenceMatch) {
-    jsonStr = fenceMatch[1].trim();
-  }
-
-  const objStart = jsonStr.indexOf("{");
-  const objEnd = jsonStr.lastIndexOf("}");
-  if (objStart === -1 || objEnd === -1) {
-    return fallbackReview(changeInfo, scope, provider);
-  }
-  jsonStr = jsonStr.slice(objStart, objEnd + 1);
-
-  try {
-    const parsed = JSON.parse(jsonStr);
-    return {
-      change: changeInfo,
-      summary: parsed.summary || "No summary provided.",
-      keyChanges: Array.isArray(parsed.keyChanges) ? parsed.keyChanges : [],
-      confidence: typeof parsed.confidence === "number" ? Math.min(10, Math.max(1, parsed.confidence)) : 5,
-      confidenceReason: parsed.confidenceReason || "",
-      riskAssessment: parsed.riskAssessment || "No risk assessment provided.",
-      findings: Array.isArray(parsed.findings)
-        ? parsed.findings.filter((f: any) => typeof f.file === "string" && typeof f.severity === "string" && typeof f.title === "string" && typeof f.detail === "string")
-        : [],
-      filesOverview: Array.isArray(parsed.filesOverview)
-        ? parsed.filesOverview.filter((f: any) => typeof f.file === "string" && typeof f.overview === "string")
-        : [],
-      breakingChanges: parsed.breakingChanges === true,
-      breakingChangeDetails: parsed.breakingChangeDetails || null,
-      timestamp: new Date().toISOString(),
-      reviewScope: scope,
-      provider: provider || "default",
-    };
-  } catch {
-    return fallbackReview(changeInfo, scope, provider);
-  }
-}
-
-function fallbackReview(changeInfo: ChangeContext, scope: ReviewScope, provider: string = ""): Review {
-  return {
-    change: changeInfo,
-    summary: "Could not parse review response.",
-    keyChanges: [],
-    confidence: 0,
-    confidenceReason: "Review parsing failed.",
-    riskAssessment: "Unable to assess risk — review manually.",
-    findings: [],
-    filesOverview: [],
-    breakingChanges: false,
-    breakingChangeDetails: null,
-    timestamp: new Date().toISOString(),
-    reviewScope: scope,
-    provider: provider || "default",
-  };
+export function extractScore(raw: string): number | null {
+  const match = raw.match(SCORE_REGEX);
+  if (!match) return null;
+  const score = parseInt(match[1], 10);
+  if (score < 1 || score > 10) return null;
+  return score;
 }

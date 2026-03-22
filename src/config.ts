@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { Config, DEFAULT_CONFIG, OPENDIFFS_DIR, CONFIG_FILE, PROMPT_FILE, REVIEWS_DIR } from "./types";
+import { Config, DEFAULT_CONFIG, OPENDIFFS_DIR, CONFIG_FILE, PROMPT_FILE, REVIEWS_DIR } from "./types.js";
 
 /** Get the .opendiffs directory path for a project */
 export function getOpenDiffsDir(cwd: string): string {
