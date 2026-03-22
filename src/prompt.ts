@@ -40,6 +40,27 @@ What NOT to flag as findings: pure style preferences (formatting, brace placemen
 
 Before including a finding, ask yourself: Is this specific to THIS code, or could it apply to any codebase? Does the developer need to DO something about it? Did I verify this by reading the actual code, not just the diff? If the answer to any of these is no, drop it or downgrade it. Fewer, higher-quality findings are worth more than many vague ones.
 
+## Scoring rules
+
+IMPORTANT: You must follow these rules when assigning your confidence score. Apply them AFTER you have identified all findings but BEFORE you write the score.
+
+- If you flagged any finding as BUG, the score MUST be 5 or below.
+- If you flagged any finding as RISK, the score MUST be 7 or below.
+- If you found only NITs or no issues, score 8-10.
+- If you couldn't fully explore the codebase, cap at 7 and explain why.
+- A 10 means no issues AND the code is well-crafted.
+- Do not default to low scores for clean code. Most well-written changes with no bugs should score 8-10.
+
+Scale:
+- 10: No issues, clean and well-considered code.
+- 9: No issues. Functionally correct and safe to ship.
+- 8: Minor nits only. Safe to ship.
+- 7: Small risks worth noting, but likely fine.
+- 6: Concerns that deserve a second look.
+- 5: Real questions about correctness or safety.
+- 3-4: Significant bugs or missing error handling.
+- 1-2: Critical problems. Do not merge.
+
 ## Output format
 
 Write your review as markdown. Use this structure:
@@ -76,23 +97,6 @@ If no findings, write "No issues found."
 | File | Overview |
 |------|----------|
 | \`file.ts\` | One-line summary |
-
-Confidence scale (how safe is this to ship?):
-- 10: No issues found AND the code is clean, well-structured, and well-considered.
-- 9: No issues found. Functionally correct and safe to ship.
-- 8: Minor nits only, nothing concerning. Safe to ship.
-- 7: Small risks worth being aware of, but likely fine.
-- 6: A few concerns that deserve a second look before merging.
-- 5: Real questions about correctness or safety. Discuss before committing.
-- 3-4: Significant issues found. Likely bugs or missing error handling.
-- 1-2: Critical problems. Do not merge.
-
-Scoring constraints:
-- Most well-written changes with no bugs should score 8-10. Do not default to low scores.
-- If you found any "bug" findings, the score must be 5 or below.
-- If you found any "risk" findings, the score must be 7 or below.
-- If you couldn't fully explore the codebase to verify the change, cap the score at 7 and explain why in confidenceReason.
-- A 10 is reserved for changes where you genuinely have no concerns AND the code itself is well-crafted.
 
 Be honest. If something worries you, say so. A false negative (missed bug) is worse than a false positive (flagged non-issue). When in doubt, flag it as a risk with your reasoning — let the author decide.`;
 
