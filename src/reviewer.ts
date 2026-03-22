@@ -1,4 +1,5 @@
 import { spawn, execFile } from "child_process";
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -19,7 +20,7 @@ function exec(cmd: string, args: string[], cwd: string): Promise<string> {
 
 // --- Git info ---
 
-export async function getBranch(cwd: string): Promise<string> {
+async function getBranch(cwd: string): Promise<string> {
   try {
     return (await exec("git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd)).trim();
   } catch {
@@ -88,12 +89,9 @@ export async function getDiff(cwd: string, scope: ReviewScope, filePath?: string
 
 // --- Get list of changed files ---
 
-export async function getChangedFiles(cwd: string, scope: "staged" | "unstaged"): Promise<string[]> {
-  const args = scope === "staged"
-    ? ["diff", "--cached", "--name-only"]
-    : ["diff", "--name-only"];
+export async function getStagedFiles(cwd: string): Promise<string[]> {
   try {
-    const out = await exec("git", args, cwd);
+    const out = await exec("git", ["diff", "--cached", "--name-only"], cwd);
     return out.trim().split("\n").filter(Boolean);
   } catch {
     return [];
@@ -144,7 +142,7 @@ export function callProvider(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const customPrompt = loadCustomPrompt(cwd);
-    const diffFile = path.join(os.tmpdir(), `opendiffs-${Date.now()}-${provider}.diff`);
+    const diffFile = path.join(os.tmpdir(), `opendiffs-${crypto.randomUUID()}.diff`);
     fs.writeFileSync(diffFile, diff, "utf-8");
     const prompt = buildPrompt(scope, diffFile, customPrompt);
 
@@ -164,25 +162,31 @@ export function callProvider(
       try { fs.unlinkSync(diffFile); } catch {}
     };
 
+    let settled = false;
+    const settle = (fn: () => void) => { if (!settled) { settled = true; fn(); } };
+
     const timer = setTimeout(() => {
       proc.kill();
-      reject(new Error(`${provider} review timed out after 10 minutes`));
+      cleanup();
+      settle(() => reject(new Error(`${provider} review timed out after 10 minutes`)));
     }, 600_000);
 
     proc.on("close", (code: number) => {
       clearTimeout(timer);
       cleanup();
-      if (code !== 0) {
-        reject(new Error(stderr || `${provider} CLI exited with code ${code}. Is it installed?`));
-      } else {
-        resolve(stdout);
-      }
+      settle(() => {
+        if (code !== 0) {
+          reject(new Error(stderr || `${provider} CLI exited with code ${code}. Is it installed?`));
+        } else {
+          resolve(stdout);
+        }
+      });
     });
 
     proc.on("error", (err: Error) => {
       clearTimeout(timer);
       cleanup();
-      reject(new Error(`${provider} CLI failed: ${err.message}. Is it installed?`));
+      settle(() => reject(new Error(`${provider} CLI failed: ${err.message}. Is it installed?`)));
     });
 
     proc.stdin.write(prompt);

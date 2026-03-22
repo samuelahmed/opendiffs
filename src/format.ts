@@ -1,5 +1,5 @@
 import pc from "picocolors";
-import { Review, Finding } from "./types";
+import { Review } from "./types";
 
 const SEVERITY_ICONS: Record<string, string> = {
   bug: pc.red("■"),
@@ -38,8 +38,8 @@ export function formatReview(review: Review): string {
   // Key changes
   if (review.keyChanges.length > 0) {
     lines.push(`  ${pc.bold("Key Changes")}`);
-    for (const change of review.keyChanges) {
-      lines.push(`  ${pc.dim("•")} ${change}`);
+    for (const item of review.keyChanges) {
+      lines.push(`  ${pc.dim("•")} ${item}`);
     }
     lines.push("");
   }
@@ -99,4 +99,34 @@ export function formatReview(review: Review): string {
   }
 
   return lines.join("\n");
+}
+
+export function renderMarkdown(md: string): string {
+  return md
+    .split("\n")
+    .map((line) => {
+      if (line.startsWith("# ")) return pc.bold(pc.cyan(line.slice(2)));
+      if (line.startsWith("## ")) {
+        const text = line.slice(3);
+        const scoreMatch = text.match(/Confidence Score: (\d+)\/10/);
+        if (scoreMatch) {
+          const score = parseInt(scoreMatch[1]);
+          const color = score >= 8 ? pc.green : score >= 5 ? pc.yellow : pc.red;
+          return color(pc.bold(text));
+        }
+        return pc.bold(pc.blue(text));
+      }
+      line = line.replace(/\*\*(.+?)\*\*/g, (_, t) => pc.bold(t));
+      line = line.replace(/`(.+?)`/g, (_, t) => pc.cyan(t));
+      if (/^\|[-|: ]+\|$/.test(line)) return pc.dim(line);
+      if (line.startsWith("|")) return line.replace(/\|/g, pc.dim("|"));
+      if (line.startsWith("- ")) return `${pc.dim("•")} ${line.slice(2)}`;
+      if (line.startsWith("---")) return pc.dim("─".repeat(50));
+      if (line.startsWith("*") && line.endsWith("*")) return pc.dim(line.slice(1, -1));
+      line = line.replace(/\bBUG\b/g, pc.red(pc.bold("BUG")));
+      line = line.replace(/\bRISK\b/g, pc.yellow(pc.bold("RISK")));
+      line = line.replace(/\bNIT\b/g, pc.gray("NIT"));
+      return line;
+    })
+    .join("\n");
 }

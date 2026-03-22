@@ -6,10 +6,12 @@ import { Config, ReviewScope } from "./types";
 import { loadConfig, saveConfig, getPromptPath, getReviewsDir } from "./config";
 import * as fs from "fs";
 import * as path from "path";
-import { getDiff, getChangeInfo, getChangedFiles, getAllChangedFiles, callProvider, parseReviewResponse } from "./reviewer";
+import { getDiff, getChangeInfo, getStagedFiles, getAllChangedFiles, callProvider, parseReviewResponse } from "./reviewer";
 import { saveReport, pruneReports, collectMdFiles } from "./report";
-import { formatReview } from "./format";
+import { formatReview, renderMarkdown } from "./format";
 import { DEFAULT_PROMPT } from "./prompt";
+
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"));
 
 const cwd = process.cwd();
 
@@ -22,7 +24,7 @@ async function main() {
   }
 
   if (args.includes("--version") || args.includes("-v")) {
-    console.log("opendiffs 0.1.0");
+    console.log(`opendiffs ${pkg.version}`);
     return;
   }
 
@@ -38,12 +40,13 @@ async function main() {
 
   const saveFlag = args.includes("--save");
   const providerFlag = getArgValue(args, "--provider");
-  const fileArg = args.find((a) => !a.startsWith("-"));
+  const flagsWithValues = ["--provider"];
+  const fileArg = args.find((a, i) => !a.startsWith("-") && !flagsWithValues.includes(args[i - 1]));
 
   const config = loadConfig(cwd);
 
   if (providerFlag) {
-    config.providers = providerFlag.split(",").map((p) => p.trim());
+    config.providers = providerFlag.split(",").map((s) => s.trim());
   }
   if (saveFlag) {
     config.saveReports = "always";
@@ -69,7 +72,7 @@ async function main() {
 
 async function pickScope(): Promise<{ scope: ReviewScope; filePath?: string } | null> {
   const [stagedFiles, allChangedFiles] = await Promise.all([
-    getChangedFiles(cwd, "staged"),
+    getStagedFiles(cwd),
     getAllChangedFiles(cwd),
   ]);
 
@@ -158,7 +161,6 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
 
   p.log.info(`Reviewing with ${providersToRun.join(", ")}`);
 
-  const reviews: any[] = [];
   const pending = new Set(providersToRun);
   const finished: string[] = [];
 
@@ -177,7 +179,6 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
     try {
       const rawResult = await callProvider(cwd, diff, scope, provider);
       const review = parseReviewResponse(rawResult, changeInfo, scope, provider);
-      reviews.push(review);
 
       pending.delete(provider);
       finished.push(`${provider} ${review.confidence}/10 ✓`);
@@ -378,36 +379,6 @@ async function browseReports() {
     console.log(renderMarkdown(content));
     console.log("");
   }
-}
-
-function renderMarkdown(md: string): string {
-  return md
-    .split("\n")
-    .map((line) => {
-      if (line.startsWith("# ")) return pc.bold(pc.cyan(line.slice(2)));
-      if (line.startsWith("## ")) {
-        const text = line.slice(3);
-        const scoreMatch = text.match(/Confidence Score: (\d+)\/10/);
-        if (scoreMatch) {
-          const score = parseInt(scoreMatch[1]);
-          const color = score >= 8 ? pc.green : score >= 5 ? pc.yellow : pc.red;
-          return color(pc.bold(text));
-        }
-        return pc.bold(pc.blue(text));
-      }
-      line = line.replace(/\*\*(.+?)\*\*/g, (_, t) => pc.bold(t));
-      line = line.replace(/`(.+?)`/g, (_, t) => pc.cyan(t));
-      if (/^\|[-|: ]+\|$/.test(line)) return pc.dim(line);
-      if (line.startsWith("|")) return line.replace(/\|/g, pc.dim("|"));
-      if (line.startsWith("- ")) return `${pc.dim("•")} ${line.slice(2)}`;
-      if (line.startsWith("---")) return pc.dim("─".repeat(50));
-      if (line.startsWith("*") && line.endsWith("*")) return pc.dim(line.slice(1, -1));
-      line = line.replace(/\bBUG\b/g, pc.red(pc.bold("BUG")));
-      line = line.replace(/\bRISK\b/g, pc.yellow(pc.bold("RISK")));
-      line = line.replace(/\bNIT\b/g, pc.gray("NIT"));
-      return line;
-    })
-    .join("\n");
 }
 
 function getArgValue(args: string[], flag: string): string | undefined {

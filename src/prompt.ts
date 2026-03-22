@@ -1,4 +1,6 @@
-export const DEFAULT_PROMPT = `You are reviewing a code change. Your job is to deeply understand what changed, why it matters, and whether it's safe to merge.
+import { ReviewScope } from "./types";
+
+export const DEFAULT_PROMPT = `You are reviewing a code change. Your job is to deeply understand what changed, why it matters, and whether it's safe to commit.
 
 ## How to review
 
@@ -67,7 +69,7 @@ Confidence scale:
 Be honest. If something worries you, say so. A false negative (missed bug) is worse than a false positive (flagged non-issue). When in doubt, flag it as a risk with your reasoning — let the author decide.`;
 
 export function buildPrompt(
-  scope: string,
+  scope: ReviewScope,
   diffFilePath: string,
   customPrompt: string,
 ): string {
@@ -88,7 +90,7 @@ Begin by reading the diff, then explore the codebase, then write your review.
 `;
 }
 
-function scopeToLabel(scope: string): string {
+function scopeToLabel(scope: ReviewScope): string {
   if (scope === "staged") return "Staged changes — about to be committed.";
   return "Single file change.";
 }
