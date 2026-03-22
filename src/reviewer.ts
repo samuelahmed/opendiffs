@@ -240,9 +240,11 @@ export function parseReviewResponse(raw: string, changeInfo: ChangeContext, scop
       confidenceReason: parsed.confidenceReason || "",
       riskAssessment: parsed.riskAssessment || "No risk assessment provided.",
       findings: Array.isArray(parsed.findings)
-        ? parsed.findings.filter((f: any) => f.file && f.severity && f.title && f.detail)
+        ? parsed.findings.filter((f: any) => typeof f.file === "string" && typeof f.severity === "string" && typeof f.title === "string" && typeof f.detail === "string")
         : [],
-      filesOverview: Array.isArray(parsed.filesOverview) ? parsed.filesOverview : [],
+      filesOverview: Array.isArray(parsed.filesOverview)
+        ? parsed.filesOverview.filter((f: any) => typeof f.file === "string" && typeof f.overview === "string")
+        : [],
       breakingChanges: parsed.breakingChanges === true,
       breakingChangeDetails: parsed.breakingChangeDetails || null,
       timestamp: new Date().toISOString(),

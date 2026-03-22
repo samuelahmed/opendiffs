@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "dev": "tsc -p ./ && node out/cli.js"
+    "dev": "tsc -p ./ && node out/cli.js",
+    "test": "tsc -p ./ && node --test out/reviewer.test.js"
   },
   "keywords": [
     "code-review",

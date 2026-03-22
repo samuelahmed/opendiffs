@@ -10,7 +10,7 @@ export interface ChangeContext {
 
 export interface Finding {
   file: string;
-  line: number;
+  line?: number;
   severity: "bug" | "risk" | "nit";
   title: string;
   detail: string;
