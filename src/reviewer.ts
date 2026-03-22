@@ -7,6 +7,18 @@ import { ChangeContext, Review, ReviewScope, OPENDIFFS_DIR, REVIEWS_DIR } from "
 import { buildPrompt } from "./prompt";
 import { loadCustomPrompt } from "./config";
 
+// Track temp diff files so they can be cleaned up on unexpected exit
+const activeTempFiles = new Set<string>();
+
+function cleanupTempFiles() {
+  for (const f of activeTempFiles) {
+    try { fs.unlinkSync(f); } catch {}
+  }
+  activeTempFiles.clear();
+}
+
+process.on("exit", cleanupTempFiles);
+
 // --- Shell exec helper ---
 
 function exec(cmd: string, args: string[], cwd: string): Promise<string> {
@@ -44,11 +56,16 @@ export async function getChangeInfo(cwd: string, scope: ReviewScope, filePath?: 
     if (!statOut.trim() && scope === "file" && filePath) {
       statOut = await exec("git", ["diff", "--stat", "--stat-width=999", "--", filePath], cwd);
     }
-  } catch {}
+  } catch {
+    // git diff --stat failed — stat fields will default to 0
+  }
 
-  const statMatch = statOut.match(
-    /(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?/
-  );
+  const filesMatch = statOut.match(/(\d+) files? changed/);
+  const insMatch = statOut.match(/(\d+) insertions?\(\+\)/);
+  const delMatch = statOut.match(/(\d+) deletions?\(-\)/);
+  const filesChanged = filesMatch ? parseInt(filesMatch[1], 10) : 0;
+  const insertions = insMatch ? parseInt(insMatch[1], 10) : 0;
+  const deletions = delMatch ? parseInt(delMatch[1], 10) : 0;
 
   let author = "Unknown";
   try {
@@ -65,9 +82,9 @@ export async function getChangeInfo(cwd: string, scope: ReviewScope, filePath?: 
     author,
     date: new Date().toISOString(),
     branch,
-    filesChanged: statMatch ? parseInt(statMatch[1], 10) : 0,
-    insertions: statMatch?.[2] ? parseInt(statMatch[2], 10) : 0,
-    deletions: statMatch?.[3] ? parseInt(statMatch[3], 10) : 0,
+    filesChanged,
+    insertions,
+    deletions,
   };
 }
 
@@ -144,6 +161,7 @@ export function callProvider(
     const customPrompt = loadCustomPrompt(cwd);
     const diffFile = path.join(os.tmpdir(), `opendiffs-${crypto.randomUUID()}.diff`);
     fs.writeFileSync(diffFile, diff, "utf-8");
+    activeTempFiles.add(diffFile);
     const prompt = buildPrompt(scope, diffFile, customPrompt);
 
     const cli = getCliArgs(provider);
@@ -160,6 +178,7 @@ export function callProvider(
 
     const cleanup = () => {
       try { fs.unlinkSync(diffFile); } catch {}
+      activeTempFiles.delete(diffFile);
     };
 
     let settled = false;

@@ -52,7 +52,10 @@ export function saveConfig(cwd: string, config: Partial<Config>): string {
   if (fs.existsSync(configPath)) {
     try {
       existing = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    } catch {}
+    } catch {
+      // Existing config is corrupt — overwrite it entirely
+      existing = {};
+    }
   }
 
   const merged = { ...existing, ...config };
