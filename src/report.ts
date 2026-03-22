@@ -1,6 +1,6 @@
 import * as path from "path";
 import * as fs from "fs";
-import { ChangeContext, ReviewScope } from "./types.js";
+import { ChangeContext } from "./types.js";
 import { getOpenDiffsDir, getReviewsDir, addToGitignore } from "./config.js";
 
 function slugify(text: string): string {
@@ -14,7 +14,6 @@ function slugify(text: string): string {
 export function saveRawReport(
   markdown: string,
   changeInfo: ChangeContext,
-  scope: ReviewScope,
   provider: string,
   workspaceRoot: string,
 ): string {

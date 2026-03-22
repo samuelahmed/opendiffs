@@ -190,7 +190,7 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
       console.log(renderMarkdown(rawResult));
       if (shouldSave) {
         try {
-          const reportPath = saveRawReport(rawResult, changeInfo, scope, provider, cwd);
+          const reportPath = saveRawReport(rawResult, changeInfo, provider, cwd);
           p.log.info(`Report saved: ${pc.dim(reportPath)}`);
         } catch (err: any) {
           p.log.warn(`Failed to save report: ${err.message}`);

@@ -20,7 +20,7 @@ describe("saveRawReport", () => {
     };
 
     const md = "# Summary\nThis is a test review.\n## Confidence: 8/10\n";
-    const filePath = saveRawReport(md, change, "staged", "claude", tmpDir);
+    const filePath = saveRawReport(md, change, "claude", tmpDir);
 
     assert.ok(fs.existsSync(filePath));
     assert.equal(fs.readFileSync(filePath, "utf-8"), md);
