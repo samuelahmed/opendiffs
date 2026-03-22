@@ -3,8 +3,8 @@ import * as assert from "node:assert/strict";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { saveRawReport } from "./report.js";
-import { ChangeContext } from "./types.js";
+import { saveRawReport } from "../src/report.js";
+import { ChangeContext } from "../src/types.js";
 
 describe("saveRawReport", () => {
   it("saves markdown to disk and returns the path", () => {

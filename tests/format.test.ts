@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { renderMarkdown } from "./format.js";
+import { renderMarkdown } from "../src/format.js";
 
 describe("renderMarkdown", () => {
   it("renders h1 headings", () => {

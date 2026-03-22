@@ -13,7 +13,7 @@ import { renderMarkdown } from "./format.js";
 import { DEFAULT_PROMPT } from "./prompt.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf-8"));
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf-8"));
 
 const cwd = process.cwd();
 

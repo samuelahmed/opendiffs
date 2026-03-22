@@ -3,15 +3,15 @@
   "version": "0.1.2",
   "description": "AI-powered code review from the terminal",
   "bin": {
-    "opendiffs": "./out/cli.js"
+    "opendiffs": "./out/src/cli.js"
   },
   "type": "module",
-  "main": "./out/cli.js",
+  "main": "./out/src/cli.js",
   "scripts": {
     "build": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "dev": "tsc -p ./ && node out/cli.js",
-    "test": "tsc -p ./ && node --test out/*.test.js"
+    "dev": "tsc -p ./ && node out/src/cli.js",
+    "test": "tsc -p ./ && node --test out/tests/*.test.js"
   },
   "keywords": [
     "code-review",
@@ -25,10 +25,8 @@
   "author": "Sam Duval",
   "license": "MIT",
   "files": [
-    "out/*.js",
-    "out/*.js.map",
-    "!out/*.test.js",
-    "!out/*.test.js.map",
+    "out/src/*.js",
+    "out/src/*.js.map",
     ".opendiffs/prompt.md",
     ".opendiffs/config.json"
   ],

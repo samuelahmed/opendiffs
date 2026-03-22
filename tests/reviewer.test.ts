@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { parsePorcelainLines, extractScore } from "./reviewer.js";
+import { parsePorcelainLines, extractScore } from "../src/reviewer.js";
 
 describe("parsePorcelainLines", () => {
   it("parses unstaged modified file (leading space)", () => {
