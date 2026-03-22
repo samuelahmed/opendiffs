@@ -43,6 +43,7 @@ export function saveConfig(cwd: string, config: Partial<Config>): string {
   const dir = getOpenDiffsDir(cwd);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
+    addToGitignore(cwd);
   }
 
   const configPath = getConfigPath(cwd);
@@ -57,6 +58,37 @@ export function saveConfig(cwd: string, config: Partial<Config>): string {
   const merged = { ...existing, ...config };
   fs.writeFileSync(configPath, JSON.stringify(merged, null, 2) + "\n", "utf-8");
   return configPath;
+}
+
+export function addToGitignore(cwd: string): void {
+  const gitRoot = findGitRoot(cwd);
+  if (!gitRoot) return;
+
+  const relativePath = gitRoot === cwd
+    ? OPENDIFFS_DIR
+    : path.relative(gitRoot, path.join(cwd, OPENDIFFS_DIR));
+  const ignoreEntry = relativePath.replace(/\\/g, "/");
+
+  const gitignorePath = path.join(gitRoot, ".gitignore");
+  let content = "";
+  if (fs.existsSync(gitignorePath)) {
+    content = fs.readFileSync(gitignorePath, "utf-8");
+    const lines = content.split("\n").map((l) => l.trim());
+    if (lines.includes(ignoreEntry) || lines.includes(ignoreEntry + "/")) return;
+  }
+
+  const entry = content.length > 0 && !content.endsWith("\n") ? `\n${ignoreEntry}\n` : `${ignoreEntry}\n`;
+  fs.appendFileSync(gitignorePath, entry, "utf-8");
+}
+
+function findGitRoot(from: string): string | null {
+  let dir = path.resolve(from);
+  while (true) {
+    if (fs.existsSync(path.join(dir, ".git"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
 /** Read the custom prompt file if it exists, otherwise return empty string */

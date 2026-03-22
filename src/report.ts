@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as fs from "fs";
 import { Review } from "./types";
-import { getReviewsDir } from "./config";
+import { getReviewsDir, addToGitignore } from "./config";
 
 function slugify(text: string): string {
   return text
@@ -123,9 +123,14 @@ ${review.suggestedReviewers.map((r) => `- ${r}`).join("\n")}
 
 export function saveReport(review: Review, workspaceRoot: string): string {
   const branchDir = review.commit.branch.replace(/\//g, path.sep);
+  const openDiffsDir = path.join(workspaceRoot, ".opendiffs");
+  const firstTime = !fs.existsSync(openDiffsDir);
   const dir = path.join(getReviewsDir(workspaceRoot), branchDir);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
+  }
+  if (firstTime) {
+    addToGitignore(workspaceRoot);
   }
 
   const ts = new Date(review.timestamp);
