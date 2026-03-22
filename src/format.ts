@@ -15,25 +15,19 @@ const SEVERITY_LABELS: Record<string, (s: string) => string> = {
 
 export function formatReview(review: Review): string {
   const lines: string[] = [];
-  const { commit, findings } = review;
+  const { change, findings } = review;
 
   // Header
   lines.push("");
   lines.push(
-    `  ${pc.bold(commit.message)}  ${pc.dim("·")}  ${pc.dim(commit.branch)}  ${pc.dim("·")}  ${pc.dim(`${commit.filesChanged} files`)}  ${pc.dim(`(+${commit.insertions}/-${commit.deletions})`)}`
+    `  ${pc.bold(change.label)}  ${pc.dim("·")}  ${pc.dim(change.branch)}  ${pc.dim("·")}  ${pc.dim(`${change.filesChanged} files`)}  ${pc.dim(`(+${change.insertions}/-${change.deletions})`)}`
   );
   lines.push("");
 
   // Score
   const score = review.confidence;
   const scoreColor = score >= 8 ? pc.green : score >= 5 ? pc.yellow : pc.red;
-  const verdict =
-    score >= 8
-      ? "Good to commit"
-      : score >= 5
-        ? "Review before committing"
-        : "Issues to fix";
-  lines.push(`  ${scoreColor(pc.bold(`Score: ${score}/10`))}  ${pc.dim("—")}  ${verdict}`);
+  lines.push(`  ${scoreColor(pc.bold(`Score: ${score}/10`))}`);
   lines.push("");
 
   // Summary
@@ -104,19 +98,5 @@ export function formatReview(review: Review): string {
     lines.push("");
   }
 
-  // Suggested reviewers
-  if (review.suggestedReviewers.length > 0) {
-    lines.push(`  ${pc.bold("Suggested Reviewers")}`);
-    for (const r of review.suggestedReviewers) {
-      lines.push(`  ${pc.dim("→")} ${r}`);
-    }
-    lines.push("");
-  }
-
   return lines.join("\n");
-}
-
-export function formatScore(score: number): string {
-  const color = score >= 8 ? pc.green : score >= 5 ? pc.yellow : pc.red;
-  return color(pc.bold(`${score}/10`));
 }

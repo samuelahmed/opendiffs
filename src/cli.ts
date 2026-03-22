@@ -7,7 +7,7 @@ import { loadConfig, saveConfig, getPromptPath, getReviewsDir } from "./config";
 import * as fs from "fs";
 import * as path from "path";
 import { getDiff, getChangeInfo, getChangedFiles, getAllChangedFiles, callProvider, parseReviewResponse } from "./reviewer";
-import { saveReport, pruneReports } from "./report";
+import { saveReport, pruneReports, collectMdFiles } from "./report";
 import { formatReview } from "./format";
 import { DEFAULT_PROMPT } from "./prompt";
 
@@ -22,7 +22,7 @@ async function main() {
   }
 
   if (args.includes("--version") || args.includes("-v")) {
-    console.log("opendiffs 1.0.0");
+    console.log("opendiffs 0.1.0");
     return;
   }
 
@@ -149,7 +149,7 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
     return;
   }
 
-  const commitInfo = await getChangeInfo(cwd, scope, filePath);
+  const changeInfo = await getChangeInfo(cwd, scope, filePath);
   const providersToRun = config.providers.length > 0 ? config.providers : ["claude"];
 
   const shouldSave =
@@ -176,35 +176,22 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
   const promises = providersToRun.map(async (provider) => {
     try {
       const rawResult = await callProvider(cwd, diff, scope, provider);
-      const review = parseReviewResponse(rawResult, commitInfo, scope, provider);
+      const review = parseReviewResponse(rawResult, changeInfo, scope, provider);
       reviews.push(review);
 
       pending.delete(provider);
       finished.push(`${provider} ${review.confidence}/10 ✓`);
 
-      // Stop spinner, print review, restart if others still running
-      if (pending.size > 0) {
-        s.stop(spinnerText());
-        console.log(pc.dim("─".repeat(60)));
-        console.log(formatReview(review));
-        if (shouldSave) {
-          try {
-            const reportPath = saveReport(review, cwd);
-            p.log.info(`Report saved: ${pc.dim(reportPath)}`);
-          } catch {}
-        }
-        s.start(spinnerText());
-      } else {
-        s.stop(spinnerText());
-        console.log(pc.dim("─".repeat(60)));
-        console.log(formatReview(review));
-        if (shouldSave) {
-          try {
-            const reportPath = saveReport(review, cwd);
-            p.log.info(`Report saved: ${pc.dim(reportPath)}`);
-          } catch {}
-        }
+      s.stop(spinnerText());
+      console.log(pc.dim("─".repeat(60)));
+      console.log(formatReview(review));
+      if (shouldSave) {
+        try {
+          const reportPath = saveReport(review, cwd);
+          p.log.info(`Report saved: ${pc.dim(reportPath)}`);
+        } catch {}
       }
+      if (pending.size > 0) s.start(spinnerText());
     } catch (err: any) {
       pending.delete(provider);
       finished.push(`${provider} failed`);
@@ -336,13 +323,19 @@ async function browseReports() {
     return;
   }
 
-  const files = collectReportFiles(dir);
-  if (files.length === 0) {
+  const allFiles: { path: string; mtime: number }[] = [];
+  collectMdFiles(dir, allFiles);
+  if (allFiles.length === 0) {
     console.log("No reviews yet.");
     return;
   }
+  allFiles.sort((a, b) => b.mtime - a.mtime);
 
-  // Build options once
+  const files = allFiles.map((f) => ({
+    ...f,
+    relative: path.relative(dir, f.path),
+  }));
+
   const reportOptions = files.map((f) => {
     const content = fs.readFileSync(f.path, "utf-8");
     const scoreMatch = content.match(/Confidence Score: (\d+)\/10/);
@@ -385,26 +378,6 @@ async function browseReports() {
     console.log(renderMarkdown(content));
     console.log("");
   }
-}
-
-function collectReportFiles(dir: string): { path: string; relative: string; mtime: number }[] {
-  const files: { path: string; relative: string; mtime: number }[] = [];
-  function walk(d: string) {
-    for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
-      const full = path.join(d, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith(".md")) {
-        files.push({
-          path: full,
-          relative: path.relative(dir, full),
-          mtime: fs.statSync(full).mtimeMs,
-        });
-      }
-    }
-  }
-  walk(dir);
-  files.sort((a, b) => b.mtime - a.mtime);
-  return files;
 }
 
 function renderMarkdown(md: string): string {

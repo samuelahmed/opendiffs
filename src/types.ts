@@ -1,7 +1,5 @@
-export interface CommitInfo {
-  hash: string;
-  shortHash: string;
-  message: string;
+export interface ChangeContext {
+  label: string;
   author: string;
   date: string;
   branch: string;
@@ -24,7 +22,7 @@ export interface FileOverview {
 }
 
 export interface Review {
-  commit: CommitInfo;
+  change: ChangeContext;
   summary: string;
   keyChanges: string[];
   confidence: number;
@@ -32,12 +30,11 @@ export interface Review {
   riskAssessment: string;
   findings: Finding[];
   filesOverview: FileOverview[];
-  suggestedReviewers: string[];
   breakingChanges: boolean;
   breakingChangeDetails: string | null;
   timestamp: string;
   reviewScope: ReviewScope;
-  model: string;
+  provider: string;
 }
 
 export type ReviewScope = "staged" | "file";

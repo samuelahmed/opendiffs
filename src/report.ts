@@ -11,16 +11,8 @@ function slugify(text: string): string {
     .slice(0, 50);
 }
 
-function confidenceLabel(score: number): string {
-  if (score >= 8) return "Safe to merge";
-  if (score >= 6) return "Safe with minor awareness";
-  if (score >= 5) return "Discuss before merging";
-  if (score >= 3) return "Significant concerns";
-  return "Do not merge";
-}
-
 export function generateMarkdown(review: Review): string {
-  const { commit, findings } = review;
+  const { change, findings } = review;
   const date = new Date(review.timestamp).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -33,17 +25,16 @@ export function generateMarkdown(review: Review): string {
   const risks = findings.filter((f) => f.severity === "risk").length;
   const nits = findings.filter((f) => f.severity === "nit").length;
 
-  let md = `# ${commit.message}
+  let md = `# ${change.label}
 
 | | |
 |---|---|
-| **Commit** | \`${commit.shortHash}\` |
-| **Branch** | \`${commit.branch}\` |
-| **Author** | ${commit.author} |
+| **Branch** | \`${change.branch}\` |
+| **Author** | ${change.author} |
 | **Date** | ${date} |
 | **Scope** | ${review.reviewScope} |
-| **Model** | ${review.model} |
-| **Files changed** | ${commit.filesChanged} (+${commit.insertions} / -${commit.deletions}) |
+| **Provider** | ${review.provider} |
+| **Files changed** | ${change.filesChanged} (+${change.insertions} / -${change.deletions}) |
 
 ---
 
@@ -52,8 +43,6 @@ export function generateMarkdown(review: Review): string {
 ${review.summary}
 
 ## Confidence Score: ${review.confidence}/10
-
-**${confidenceLabel(review.confidence)}**
 
 ${review.confidenceReason}
 
@@ -105,14 +94,6 @@ No issues found.
 ${review.filesOverview.map((f) => `| \`${f.file}\` | ${f.overview} |`).join("\n")}
 `;
 
-  if (review.suggestedReviewers.length > 0) {
-    md += `
-## Suggested Reviewers
-
-${review.suggestedReviewers.map((r) => `- ${r}`).join("\n")}
-`;
-  }
-
   md += `
 ---
 *Reviewed by OpenDiffs on ${date}*
@@ -122,7 +103,7 @@ ${review.suggestedReviewers.map((r) => `- ${r}`).join("\n")}
 }
 
 export function saveReport(review: Review, workspaceRoot: string): string {
-  const branchDir = review.commit.branch.replace(/\//g, path.sep);
+  const branchDir = review.change.branch.replace(/\//g, path.sep);
   const openDiffsDir = path.join(workspaceRoot, ".opendiffs");
   const firstTime = !fs.existsSync(openDiffsDir);
   const dir = path.join(getReviewsDir(workspaceRoot), branchDir);
@@ -136,9 +117,9 @@ export function saveReport(review: Review, workspaceRoot: string): string {
   const ts = new Date(review.timestamp);
   const dateStr = ts.toISOString().slice(0, 10);
   const timeStr = ts.toISOString().slice(11, 19).replace(/:/g, "");
-  const slug = slugify(review.commit.message);
-  const modelSlug = review.model && review.model !== "default" ? `_${slugify(review.model)}` : "";
-  const filename = `${dateStr}_${timeStr}_${slug}${modelSlug}.md`;
+  const slug = slugify(review.change.label);
+  const providerSlug = review.provider && review.provider !== "default" ? `_${slugify(review.provider)}` : "";
+  const filename = `${dateStr}_${timeStr}_${slug}${providerSlug}.md`;
 
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, generateMarkdown(review), "utf-8");
@@ -163,7 +144,7 @@ export function pruneReports(workspaceRoot: string, maxReports: number = 50) {
   cleanEmptyDirs(dir);
 }
 
-function collectMdFiles(dir: string, results: { path: string; mtime: number }[]) {
+export function collectMdFiles(dir: string, results: { path: string; mtime: number }[]) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {

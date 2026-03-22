@@ -52,7 +52,6 @@ Respond with a single JSON object (no markdown fences, no surrounding text):
       "overview": "one-line summary of what changed"
     }
   ],
-  "suggestedReviewers": ["role descriptions, not names"],
   "breakingChanges": true | false,
   "breakingChangeDetails": "string or null"
 }
@@ -61,9 +60,9 @@ Confidence scale:
 - 10: Trivial, zero risk
 - 8-9: Clean, no issues found
 - 6-7: Minor concerns, safe with awareness
-- 4-5: Worth discussing before merge
+- 4-5: Worth discussing before committing
 - 2-3: Significant concerns
-- 1: Do not merge
+- 1: Do not commit
 
 Be honest. If something worries you, say so. A false negative (missed bug) is worse than a false positive (flagged non-issue). When in doubt, flag it as a risk with your reasoning — let the author decide.`;
 

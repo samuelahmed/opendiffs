@@ -2,7 +2,7 @@ import { spawn, execFile } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { CommitInfo, Review, ReviewScope, Config, OPENDIFFS_DIR, REVIEWS_DIR } from "./types";
+import { ChangeContext, Review, ReviewScope, OPENDIFFS_DIR, REVIEWS_DIR } from "./types";
 import { buildPrompt } from "./prompt";
 import { loadCustomPrompt } from "./config";
 
@@ -27,7 +27,7 @@ export async function getBranch(cwd: string): Promise<string> {
   }
 }
 
-export async function getChangeInfo(cwd: string, scope: ReviewScope, filePath?: string): Promise<CommitInfo> {
+export async function getChangeInfo(cwd: string, scope: ReviewScope, filePath?: string): Promise<ChangeContext> {
   const branch = await getBranch(cwd);
 
   let statArgs: string[];
@@ -60,9 +60,7 @@ export async function getChangeInfo(cwd: string, scope: ReviewScope, filePath?: 
       : "Staged changes";
 
   return {
-    hash: "working",
-    shortHash: "working",
-    message: scopeLabel,
+    label: scopeLabel,
     author,
     date: new Date().toISOString(),
     branch,
@@ -166,7 +164,13 @@ export function callProvider(
       try { fs.unlinkSync(diffFile); } catch {}
     };
 
+    const timer = setTimeout(() => {
+      proc.kill();
+      reject(new Error(`${provider} review timed out after 10 minutes`));
+    }, 600_000);
+
     proc.on("close", (code: number) => {
+      clearTimeout(timer);
       cleanup();
       if (code !== 0) {
         reject(new Error(stderr || `${provider} CLI exited with code ${code}. Is it installed?`));
@@ -176,25 +180,19 @@ export function callProvider(
     });
 
     proc.on("error", (err: Error) => {
+      clearTimeout(timer);
       cleanup();
       reject(new Error(`${provider} CLI failed: ${err.message}. Is it installed?`));
     });
 
     proc.stdin.write(prompt);
     proc.stdin.end();
-
-    const timer = setTimeout(() => {
-      proc.kill();
-      reject(new Error(`${provider} review timed out after 10 minutes`));
-    }, 600_000);
-
-    proc.on("close", () => clearTimeout(timer));
   });
 }
 
 // --- Parse response ---
 
-export function parseReviewResponse(raw: string, commitInfo: CommitInfo, scope: ReviewScope, model: string = ""): Review {
+export function parseReviewResponse(raw: string, changeInfo: ChangeContext, scope: ReviewScope, provider: string = ""): Review {
   let jsonStr = raw.trim();
 
   const fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
@@ -205,14 +203,14 @@ export function parseReviewResponse(raw: string, commitInfo: CommitInfo, scope: 
   const objStart = jsonStr.indexOf("{");
   const objEnd = jsonStr.lastIndexOf("}");
   if (objStart === -1 || objEnd === -1) {
-    return fallbackReview(commitInfo, scope, model);
+    return fallbackReview(changeInfo, scope, provider);
   }
   jsonStr = jsonStr.slice(objStart, objEnd + 1);
 
   try {
     const parsed = JSON.parse(jsonStr);
     return {
-      commit: commitInfo,
+      change: changeInfo,
       summary: parsed.summary || "No summary provided.",
       keyChanges: Array.isArray(parsed.keyChanges) ? parsed.keyChanges : [],
       confidence: typeof parsed.confidence === "number" ? Math.min(10, Math.max(1, parsed.confidence)) : 5,
@@ -222,21 +220,20 @@ export function parseReviewResponse(raw: string, commitInfo: CommitInfo, scope: 
         ? parsed.findings.filter((f: any) => f.file && f.severity && f.title && f.detail)
         : [],
       filesOverview: Array.isArray(parsed.filesOverview) ? parsed.filesOverview : [],
-      suggestedReviewers: Array.isArray(parsed.suggestedReviewers) ? parsed.suggestedReviewers : [],
       breakingChanges: parsed.breakingChanges === true,
       breakingChangeDetails: parsed.breakingChangeDetails || null,
       timestamp: new Date().toISOString(),
       reviewScope: scope,
-      model: model || "default",
+      provider: provider || "default",
     };
   } catch {
-    return fallbackReview(commitInfo, scope, model);
+    return fallbackReview(changeInfo, scope, provider);
   }
 }
 
-function fallbackReview(commitInfo: CommitInfo, scope: ReviewScope, model: string = ""): Review {
+function fallbackReview(changeInfo: ChangeContext, scope: ReviewScope, provider: string = ""): Review {
   return {
-    commit: commitInfo,
+    change: changeInfo,
     summary: "Could not parse review response.",
     keyChanges: [],
     confidence: 0,
@@ -244,11 +241,10 @@ function fallbackReview(commitInfo: CommitInfo, scope: ReviewScope, model: strin
     riskAssessment: "Unable to assess risk — review manually.",
     findings: [],
     filesOverview: [],
-    suggestedReviewers: [],
     breakingChanges: false,
     breakingChangeDetails: null,
     timestamp: new Date().toISOString(),
     reviewScope: scope,
-    model: model || "default",
+    provider: provider || "default",
   };
 }
