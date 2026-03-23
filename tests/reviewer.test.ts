@@ -40,11 +40,11 @@ describe("parsePorcelainLines", () => {
 
 describe("extractScore", () => {
   it("extracts score from markdown heading", () => {
-    assert.equal(extractScore("## Confidence: 8/10\n"), 8);
+    assert.equal(extractScore("## Diffs Score: 8/10\n"), 8);
   });
 
   it("extracts score with extra spacing", () => {
-    assert.equal(extractScore("##  Confidence:  9 / 10\n"), 9);
+    assert.equal(extractScore("##  Diffs Score:  9 / 10\n"), 9);
   });
 
   it("returns null when no score found", () => {
@@ -52,12 +52,12 @@ describe("extractScore", () => {
   });
 
   it("returns null for out of range scores", () => {
-    assert.equal(extractScore("## Confidence: 0/10"), null);
-    assert.equal(extractScore("## Confidence: 11/10"), null);
+    assert.equal(extractScore("## Diffs Score: 0/10"), null);
+    assert.equal(extractScore("## Diffs Score: 11/10"), null);
   });
 
   it("extracts score from larger markdown", () => {
-    const md = "# Summary\nSome text\n## Confidence: 7/10\nMore text\n## Findings\n";
+    const md = "# Summary\nSome text\n## Diffs Score: 7/10\nMore text\n## Findings\n";
     assert.equal(extractScore(md), 7);
   });
 });

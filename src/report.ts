@@ -11,7 +11,7 @@ function slugify(text: string): string {
     .slice(0, 50);
 }
 
-export function saveRawReport(
+export function saveReview(
   markdown: string,
   changeInfo: ChangeContext,
   provider: string,
@@ -40,17 +40,17 @@ export function saveRawReport(
   return filePath;
 }
 
-export function pruneReports(workspaceRoot: string, maxReports: number = 50) {
+export function pruneReviews(workspaceRoot: string, maxReviews: number = 50) {
   const dir = getReviewsDir(workspaceRoot);
   if (!fs.existsSync(dir)) return;
 
   const allFiles: { path: string; mtime: number }[] = [];
   collectMdFiles(dir, allFiles);
 
-  if (allFiles.length <= maxReports) return;
+  if (allFiles.length <= maxReviews) return;
 
   allFiles.sort((a, b) => a.mtime - b.mtime);
-  const toDelete = allFiles.slice(0, allFiles.length - maxReports);
+  const toDelete = allFiles.slice(0, allFiles.length - maxReviews);
   for (const file of toDelete) {
     fs.unlinkSync(file.path);
   }

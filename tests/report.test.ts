@@ -3,7 +3,7 @@ import * as assert from "node:assert/strict";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { saveRawReport, pruneReports, collectMdFiles } from "../src/report.js";
+import { saveReview, pruneReviews, collectMdFiles } from "../src/report.js";
 import { ChangeContext } from "../src/types.js";
 
 function makeTmpDir(): string {
@@ -23,11 +23,11 @@ function makeChange(overrides?: Partial<ChangeContext>): ChangeContext {
   };
 }
 
-describe("saveRawReport", () => {
+describe("saveReview", () => {
   it("saves markdown to disk and returns the path", () => {
     const dir = makeTmpDir();
-    const md = "# Summary\nThis is a test review.\n## Confidence: 8/10\n";
-    const filePath = saveRawReport(md, makeChange(), "claude", dir);
+    const md = "# Summary\nThis is a test review.\n## Diffs Score: 8/10\n";
+    const filePath = saveReview(md, makeChange(), "claude", dir);
 
     assert.ok(fs.existsSync(filePath));
     assert.equal(fs.readFileSync(filePath, "utf-8"), md);
@@ -38,7 +38,7 @@ describe("saveRawReport", () => {
 
   it("organizes reports by branch directory", () => {
     const dir = makeTmpDir();
-    const filePath = saveRawReport("review", makeChange({ branch: "feat/login" }), "claude", dir);
+    const filePath = saveReview("review", makeChange({ branch: "feat/login" }), "claude", dir);
 
     assert.ok(filePath.includes(path.join("feat", "login")));
     fs.rmSync(dir, { recursive: true });
@@ -46,7 +46,7 @@ describe("saveRawReport", () => {
 
   it("handles special characters in label via slugify", () => {
     const dir = makeTmpDir();
-    const filePath = saveRawReport(
+    const filePath = saveReview(
       "review",
       makeChange({ label: "My File (v2) [draft].ts" }),
       "claude",
@@ -62,7 +62,7 @@ describe("saveRawReport", () => {
   });
 });
 
-describe("pruneReports", () => {
+describe("pruneReviews", () => {
   it("deletes oldest files when count exceeds max", () => {
     const dir = makeTmpDir();
     const reviewsDir = path.join(dir, ".opendiffs", "reviews", "main");
@@ -79,7 +79,7 @@ describe("pruneReports", () => {
       files.push(filePath);
     }
 
-    pruneReports(dir, 3);
+    pruneReviews(dir, 3);
 
     const remaining: { path: string; mtime: number }[] = [];
     collectMdFiles(path.join(dir, ".opendiffs", "reviews"), remaining);
@@ -105,7 +105,7 @@ describe("pruneReports", () => {
       fs.writeFileSync(path.join(reviewsDir, `review-${i}.md`), `review ${i}`);
     }
 
-    pruneReports(dir, 10);
+    pruneReviews(dir, 10);
 
     const remaining: { path: string; mtime: number }[] = [];
     collectMdFiles(path.join(dir, ".opendiffs", "reviews"), remaining);
@@ -128,7 +128,7 @@ describe("pruneReports", () => {
     fs.mkdirSync(mainDir, { recursive: true });
     fs.writeFileSync(path.join(mainDir, "recent.md"), "new review");
 
-    pruneReports(dir, 1);
+    pruneReviews(dir, 1);
 
     assert.ok(!fs.existsSync(branchDir), "empty branch dir should be removed");
     fs.rmSync(dir, { recursive: true });
@@ -137,7 +137,7 @@ describe("pruneReports", () => {
   it("does nothing when reviews directory does not exist", () => {
     const dir = makeTmpDir();
     // Should not throw
-    pruneReports(dir, 10);
+    pruneReviews(dir, 10);
     fs.rmSync(dir, { recursive: true });
   });
 });

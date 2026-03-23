@@ -18,8 +18,8 @@ describe("loadConfig", () => {
     const dir = makeTmpDir();
     const config = loadConfig(dir);
     assert.deepEqual(config.providers, ["claude"]);
-    assert.equal(config.saveReports, "always");
-    assert.equal(config.maxReports, 50);
+    assert.equal(config.saveReviews, "always");
+    assert.equal(config.maxReviews, 50);
     fs.rmSync(dir, { recursive: true });
   });
 
@@ -35,8 +35,8 @@ describe("loadConfig", () => {
 
     const config = loadConfig(dir);
     assert.deepEqual(config.providers, ["codex"]);
-    assert.equal(config.saveReports, "always"); // default preserved
-    assert.equal(config.maxReports, 50); // default preserved
+    assert.equal(config.saveReviews, "always"); // default preserved
+    assert.equal(config.maxReviews, 50); // default preserved
     fs.rmSync(dir, { recursive: true });
   });
 
@@ -48,7 +48,7 @@ describe("loadConfig", () => {
 
     const config = loadConfig(dir);
     assert.deepEqual(config.providers, ["claude"]);
-    assert.equal(config.saveReports, "always");
+    assert.equal(config.saveReviews, "always");
     fs.rmSync(dir, { recursive: true });
   });
 
@@ -84,14 +84,14 @@ describe("saveConfig", () => {
     const dir = makeTmpDir();
     initGitRepo(dir);
 
-    saveConfig(dir, { providers: ["claude"], saveReports: "always" });
-    saveConfig(dir, { maxReports: 100 });
+    saveConfig(dir, { providers: ["claude"], saveReviews: "always" });
+    saveConfig(dir, { maxReviews: 100 });
 
     const configPath = path.join(dir, ".opendiffs", "config.json");
     const saved = JSON.parse(fs.readFileSync(configPath, "utf-8"));
     assert.deepEqual(saved.providers, ["claude"]); // preserved from first save
-    assert.equal(saved.saveReports, "always"); // preserved from first save
-    assert.equal(saved.maxReports, 100); // added by second save
+    assert.equal(saved.saveReviews, "always"); // preserved from first save
+    assert.equal(saved.maxReviews, 100); // added by second save
     fs.rmSync(dir, { recursive: true });
   });
 });

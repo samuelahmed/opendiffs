@@ -19,12 +19,12 @@ export const CONFIG_FILE = "config.json";
 
 export interface Config {
   providers: string[];
-  saveReports: "always" | "staged-only" | "never";
-  maxReports: number;
+  saveReviews: "always" | "staged-only" | "never";
+  maxReviews: number;
 }
 
 export const DEFAULT_CONFIG: Config = {
   providers: ["claude"],
-  saveReports: "always",
-  maxReports: 50,
+  saveReviews: "always",
+  maxReviews: 50,
 };

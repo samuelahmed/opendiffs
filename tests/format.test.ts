@@ -7,7 +7,7 @@ describe("renderMarkdown", () => {
     const md = [
       "# Summary",
       "Some **bold** text and `inline code`.",
-      "## Confidence: 8/10",
+      "## Diffs Score: 8/10",
       "- First item",
       "- Second item",
       "### BUG: Null reference",

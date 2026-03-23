@@ -10,7 +10,7 @@ Requires Node.js 18+ and [Claude Code](https://docs.anthropic.com/en/docs/claude
 
 ![opendiffs demo](assets/demo.gif)
 
-Review your staged changes or any individual file before you commit. Your agent reads the diffs, explores your codebase for context, and gives you a structured review with a confidence score.
+Review your staged changes or any individual file before you commit. Your agent reads the diffs, explores your codebase for context, and gives you a structured review with a Diffs Score.
 
 ## How it works
 
@@ -31,7 +31,7 @@ Note: your agents are doing real work — this will use your plans.
 Reviews are saved as markdown in `.opendiffs/reviews/`, organized by branch. Browse them anytime:
 
 ```bash
-opendiffs --reports
+opendiffs --reviews
 ```
 
 > `.opendiffs/` is automatically added to `.gitignore`.
@@ -60,8 +60,8 @@ opendiffs                    Interactive — pick what to review
 opendiffs --staged           Review staged changes directly
 opendiffs <file>             Review a specific file
 opendiffs --provider codex   Pick your agent (or claude,codex for both)
-opendiffs --settings         Configure providers, prompt, reports
-opendiffs --reports          Browse saved reviews
+opendiffs --settings         Configure providers, prompt, reviews
+opendiffs --reviews          Browse saved reviews
 ```
 
 ## License

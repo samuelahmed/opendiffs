@@ -8,8 +8,8 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { getDiff, getChangeInfo, getStagedFiles, getAllChangedFiles, callProvider, extractScore, SCORE_REGEX } from "./reviewer.js";
-import { saveRawReport, pruneReports, collectMdFiles } from "./report.js";
-import { renderMarkdown } from "./format.js";
+import { saveReview, pruneReviews, collectMdFiles } from "./report.js";
+import { renderMarkdown, renderScoreBanner, stripScoreLine } from "./format.js";
 import { DEFAULT_PROMPT } from "./prompt.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -35,8 +35,16 @@ async function main() {
     return;
   }
 
-  if (args.includes("--reports")) {
-    await browseReports();
+  if (args.includes("--reviews")) {
+    await browseReviews();
+    return;
+  }
+
+  const knownFlags = ["--help", "-h", "--version", "-v", "--settings", "--reviews", "--save", "--staged", "--provider"];
+  const unknownFlag = args.find((a, i) => a.startsWith("-") && !knownFlags.includes(a) && !knownFlags.includes(args[i - 1]));
+  if (unknownFlag) {
+    p.log.error(`Unknown flag: ${unknownFlag}`);
+    printHelp();
     return;
   }
 
@@ -51,7 +59,7 @@ async function main() {
     config.providers = providerFlag.split(",").map((s) => s.trim());
   }
   if (saveFlag) {
-    config.saveReports = "always";
+    config.saveReviews = "always";
   }
 
   let scope: ReviewScope;
@@ -158,8 +166,8 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
   const providersToRun = config.providers.length > 0 ? config.providers : ["claude"];
 
   const shouldSave =
-    config.saveReports === "always" ||
-    (config.saveReports === "staged-only" && scope === "staged");
+    config.saveReviews === "always" ||
+    (config.saveReviews === "staged-only" && scope === "staged");
 
   p.log.info(`Reviewing with ${providersToRun.join(", ")}`);
 
@@ -187,13 +195,14 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
 
       s.stop(spinnerText());
       console.log(pc.dim("─".repeat(60)));
-      console.log(renderMarkdown(rawResult));
+      if (score !== null) console.log(renderScoreBanner(score));
+      console.log(renderMarkdown(stripScoreLine(rawResult)));
       if (shouldSave) {
         try {
-          const reportPath = saveRawReport(rawResult, changeInfo, provider, cwd);
-          p.log.info(`Report saved: ${pc.dim(reportPath)}`);
+          const reviewPath = saveReview(rawResult, changeInfo, provider, cwd);
+          p.log.info(`Review saved: ${pc.dim(reviewPath)}`);
         } catch (err: any) {
-          p.log.warn(`Failed to save report: ${err.message}`);
+          p.log.warn(`Failed to save review: ${err.message}`);
         }
       }
       if (pending.size > 0) s.start(spinnerText());
@@ -209,7 +218,7 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
 
   if (shouldSave) {
     try {
-      pruneReports(cwd, config.maxReports);
+      pruneReviews(cwd, config.maxReviews);
     } catch {}
   }
 
@@ -230,7 +239,7 @@ async function runSettings() {
       message: "Settings" + (changed ? pc.dim(" — unsaved changes") : ""),
       options: [
         { value: "providers", label: `Providers`, hint: providerSummary },
-        { value: "reports", label: `Reports`, hint: config.saveReports === "never" ? "off" : `${config.saveReports}, keep ${config.maxReports}` },
+        { value: "reviews", label: `Reviews`, hint: config.saveReviews === "never" ? "off" : `${config.saveReviews}, keep ${config.maxReviews}` },
         { value: "fullPrompt", label: `Review prompt`, hint: fs.existsSync(getPromptPath(cwd)) ? "custom" : "default" },
         { value: "done", label: pc.green("Save & exit") },
       ],
@@ -254,26 +263,26 @@ async function runSettings() {
       changed = true;
     }
 
-    if (choice === "reports") {
+    if (choice === "reviews") {
       const save = await p.select({
-        message: "Save reports",
+        message: "Save reviews",
         options: [
           { value: "always", label: "Always" },
           { value: "staged-only", label: "Staged reviews only" },
           { value: "never", label: "Never" },
         ],
-        initialValue: config.saveReports,
+        initialValue: config.saveReviews,
       });
       if (p.isCancel(save)) continue;
-      config.saveReports = save as Config["saveReports"];
+      config.saveReviews = save as Config["saveReviews"];
 
       if (save !== "never") {
         const max = await p.text({
-          message: "Max reports to keep (oldest auto-deleted)",
-          initialValue: String(config.maxReports),
+          message: "Max reviews to keep (oldest auto-deleted)",
+          initialValue: String(config.maxReviews),
         });
         if (!p.isCancel(max)) {
-          config.maxReports = parseInt(max as string, 10) || 50;
+          config.maxReviews = parseInt(max as string, 10) || 50;
         }
       }
       changed = true;
@@ -321,7 +330,7 @@ async function runSettings() {
   p.outro("");
 }
 
-async function browseReports() {
+async function browseReviews() {
   const dir = getReviewsDir(cwd);
   if (!fs.existsSync(dir)) {
     console.log("No reviews yet.");
@@ -341,7 +350,7 @@ async function browseReports() {
     relative: path.relative(dir, f.path),
   }));
 
-  const reportOptions = files.map((f) => {
+  const reviewOptions = files.map((f) => {
     const content = fs.readFileSync(f.path, "utf-8");
     const scoreMatch = content.match(SCORE_REGEX);
     const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
@@ -366,7 +375,7 @@ async function browseReports() {
   p.intro(pc.bold("Reviews"));
 
   while (true) {
-    const options = [...reportOptions, { value: "__exit__", label: pc.dim("Exit") }];
+    const options = [...reviewOptions, { value: "__exit__", label: pc.dim("Exit") }];
 
     const choice = await p.select({
       message: `${files.length} review${files.length !== 1 ? "s" : ""}`,
@@ -379,8 +388,10 @@ async function browseReports() {
     }
 
     const content = fs.readFileSync(choice as string, "utf-8");
+    const reviewScore = extractScore(content);
     console.log("");
-    console.log(renderMarkdown(content));
+    if (reviewScore !== null) console.log(renderScoreBanner(reviewScore));
+    console.log(renderMarkdown(stripScoreLine(content)));
     console.log("");
   }
 }
@@ -403,9 +414,9 @@ function printHelp() {
   ${pc.bold("Options")}
     --staged                     Review staged changes (skip menu)
     --provider ${pc.dim("<name>")}            Provider: claude, codex, or claude,codex
-    --save                       Save markdown report
+    --save                       Save markdown review
     --settings                   Configure settings
-    --reports                    Browse and read saved reviews
+    --reviews                    Browse and read saved reviews
     --help                       Show this help
     --version                    Show version
 `);

@@ -170,7 +170,7 @@ export function callProvider(
     const diffFile = path.join(os.tmpdir(), `opendiffs-${crypto.randomUUID()}.diff`);
     fs.writeFileSync(diffFile, diff, "utf-8");
     activeTempFiles.add(diffFile);
-    const prompt = buildPrompt(scope, diffFile, customPrompt);
+    const prompt = buildPrompt(diffFile, customPrompt);
 
     const cli = getCliArgs(provider);
 
@@ -223,7 +223,7 @@ export function callProvider(
 
 // --- Extract score from markdown ---
 
-export const SCORE_REGEX = /Confidence:?\s*(?:Score:?\s*)?(\d+)\s*\/\s*10/i;
+export const SCORE_REGEX = /Diffs\s+Score:?\s*(\d+)\s*\/\s*10/i;
 
 export function extractScore(raw: string): number | null {
   const match = raw.match(SCORE_REGEX);
