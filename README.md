@@ -26,7 +26,7 @@ Your agent reads the diffs and checks your codebase. You get back a markdown rev
 
 Note: your agents are doing real work — this will use your plans.
 
-## Reports
+## Reviews
 
 Reviews are saved as markdown in `.opendiffs/reviews/`, organized by branch. Browse them anytime:
 
@@ -45,8 +45,8 @@ opendiffs --settings
 | Setting | Options | Default |
 |---------|---------|---------|
 | **Providers** | `claude`, `codex`, or both in parallel | `claude` |
-| **Save reports** | `always`, `staged-only`, `never` | `always` |
-| **Max reports** | any number | `50` |
+| **Save reviews** | `always`, `staged-only`, `never` | `always` |
+| **Max reviews** | any number | `50` |
 | **Review prompt** | default or custom `.opendiffs/prompt.md` | default |
 
 ## Custom prompt

@@ -8,7 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { getDiff, getChangeInfo, getStagedFiles, getAllChangedFiles, callProvider, extractScore, SCORE_REGEX } from "./reviewer.js";
-import { saveReview, pruneReviews, collectMdFiles } from "./report.js";
+import { saveReview, pruneReviews, collectMdFiles } from "./review.js";
 import { renderMarkdown, renderScoreBanner, stripScoreLine } from "./format.js";
 import { DEFAULT_PROMPT } from "./prompt.js";
 

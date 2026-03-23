@@ -3,7 +3,7 @@ import * as assert from "node:assert/strict";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { saveReview, pruneReviews, collectMdFiles } from "../src/report.js";
+import { saveReview, pruneReviews, collectMdFiles } from "../src/review.js";
 import { ChangeContext } from "../src/types.js";
 
 function makeTmpDir(): string {
@@ -36,7 +36,7 @@ describe("saveReview", () => {
     fs.rmSync(dir, { recursive: true });
   });
 
-  it("organizes reports by branch directory", () => {
+  it("organizes reviews by branch directory", () => {
     const dir = makeTmpDir();
     const filePath = saveReview("review", makeChange({ branch: "feat/login" }), "claude", dir);
 
