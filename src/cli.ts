@@ -7,7 +7,7 @@ import { loadConfig, saveConfig, getPromptPath, getReviewsDir } from "./config.j
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { getDiff, getChangeInfo, getStagedFiles, getAllChangedFiles, callProvider, extractScore, SCORE_REGEX } from "./reviewer.js";
+import { getDiff, getChangeInfo, getStagedFiles, getAllChangedFiles, getRecentCommits, getDefaultBaseBranch, getBranchCommitCount, callProvider, extractScore, SCORE_REGEX } from "./reviewer.js";
 import { saveReview, pruneReviews, collectMdFiles } from "./review.js";
 import { renderMarkdown, renderScoreBanner, stripScoreLine } from "./format.js";
 import { DEFAULT_PROMPT } from "./prompt.js";
@@ -40,7 +40,7 @@ async function main() {
     return;
   }
 
-  const knownFlags = ["--help", "-h", "--version", "-v", "--settings", "--reviews", "--save", "--staged", "--provider"];
+  const knownFlags = ["--help", "-h", "--version", "-v", "--settings", "--reviews", "--save", "--staged", "--commit", "--branch", "--provider"];
   const unknownFlag = args.find((a, i) => a.startsWith("-") && !knownFlags.includes(a) && !knownFlags.includes(args[i - 1]));
   if (unknownFlag) {
     p.log.error(`Unknown flag: ${unknownFlag}`);
@@ -50,8 +50,14 @@ async function main() {
 
   const saveFlag = args.includes("--save");
   const providerFlag = getArgValue(args, "--provider");
-  const flagsWithValues = ["--provider"];
-  const fileArg = args.find((a, i) => !a.startsWith("-") && !flagsWithValues.includes(args[i - 1]));
+  const commitFlag = getArgValue(args, "--commit");
+  const branchFlag = args.includes("--branch");
+  const branchBaseRaw = branchFlag ? getArgValue(args, "--branch") : undefined;
+  const branchBaseFlag = branchBaseRaw && !branchBaseRaw.startsWith("-") ? branchBaseRaw : undefined;
+  const flagsWithValues = ["--provider", "--commit"];
+  // If --branch has an explicit base arg, exclude it from fileArg matching
+  const branchValueArgs = new Set(branchBaseFlag ? [branchBaseFlag] : []);
+  const fileArg = args.find((a, i) => !a.startsWith("-") && !flagsWithValues.includes(args[i - 1]) && !branchValueArgs.has(a));
 
   const config = loadConfig(cwd);
 
@@ -65,7 +71,22 @@ async function main() {
   let scope: ReviewScope;
   let filePath: string | undefined;
 
-  if (fileArg) {
+  if (branchFlag) {
+    scope = "branch";
+    if (branchBaseFlag) {
+      filePath = branchBaseFlag;
+    } else {
+      const base = await getDefaultBaseBranch(cwd);
+      if (!base) {
+        p.log.error("Could not detect base branch (no main or master). Use --branch <base> to specify.");
+        return;
+      }
+      filePath = base;
+    }
+  } else if (commitFlag) {
+    scope = "commit";
+    filePath = commitFlag;
+  } else if (fileArg) {
     scope = "file";
     filePath = fileArg;
   } else if (args.includes("--staged")) {
@@ -81,20 +102,24 @@ async function main() {
 }
 
 async function pickScope(): Promise<{ scope: ReviewScope; filePath?: string } | null> {
-  const [stagedFiles, allChangedFiles] = await Promise.all([
+  const baseBranch = await getDefaultBaseBranch(cwd);
+
+  const [stagedFiles, allChangedFiles, recentCommits, branchCommitCount] = await Promise.all([
     getStagedFiles(cwd),
     getAllChangedFiles(cwd),
+    getRecentCommits(cwd),
+    baseBranch ? getBranchCommitCount(cwd, baseBranch) : Promise.resolve(0),
   ]);
 
   p.intro(pc.bold("OpenDiffs"));
 
-  if (allChangedFiles.length === 0) {
+  if (allChangedFiles.length === 0 && recentCommits.length === 0) {
     p.log.warn("No changes found.");
     p.outro("");
     return null;
   }
 
-  type ScopeOption = "staged" | "file";
+  type ScopeOption = "staged" | "file" | "commit" | "branch";
   const options: { value: ScopeOption; label: string; hint?: string }[] = [];
 
   if (stagedFiles.length > 0) {
@@ -110,6 +135,21 @@ async function pickScope(): Promise<{ scope: ReviewScope; filePath?: string } | 
       value: "file",
       label: "Review a file...",
       hint: `${allChangedFiles.length} changed file${allChangedFiles.length !== 1 ? "s" : ""}`,
+    });
+  }
+
+  if (recentCommits.length > 0) {
+    options.push({
+      value: "commit",
+      label: "Review a commit...",
+    });
+  }
+
+  if (baseBranch && branchCommitCount > 0) {
+    options.push({
+      value: "branch",
+      label: "Review current branch...",
+      hint: `${branchCommitCount} commit${branchCommitCount !== 1 ? "s" : ""} ahead of ${baseBranch}`,
     });
   }
 
@@ -141,6 +181,28 @@ async function pickScope(): Promise<{ scope: ReviewScope; filePath?: string } | 
     return { scope: "file", filePath: selected as string };
   }
 
+  if (choice === "commit") {
+    const selected = await p.select({
+      message: "Select a commit to review",
+      options: recentCommits.map((c) => ({
+        value: c.hash,
+        label: c.subject,
+        hint: `${c.hash.slice(0, 8)} · ${c.date}`,
+      })),
+    });
+
+    if (p.isCancel(selected)) {
+      p.cancel("Cancelled");
+      return null;
+    }
+
+    return { scope: "commit", filePath: selected as string };
+  }
+
+  if (choice === "branch") {
+    return { scope: "branch", filePath: baseBranch! };
+  }
+
   return { scope: "staged" };
 }
 
@@ -157,7 +219,11 @@ async function runReview(config: Config, scope: ReviewScope, filePath?: string) 
     const label =
       scope === "staged"
         ? "No staged changes to review."
-        : `No changes in ${filePath}.`;
+        : scope === "branch"
+          ? `No changes found on this branch vs ${filePath}.`
+          : scope === "commit"
+            ? `No diff found for commit ${filePath?.slice(0, 8)}.`
+            : `No changes in ${filePath}.`;
     p.log.warn(label);
     return;
   }
@@ -413,6 +479,8 @@ function printHelp() {
 
   ${pc.bold("Options")}
     --staged                     Review staged changes (skip menu)
+    --commit ${pc.dim("<hash>")}              Review a specific commit
+    --branch ${pc.dim("[base]")}             Review current branch vs base (default: main)
     --provider ${pc.dim("<name>")}            Provider: claude, codex, or claude,codex
     --save                       Save markdown review
     --settings                   Configure settings

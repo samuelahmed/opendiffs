@@ -8,7 +8,7 @@ export interface ChangeContext {
   deletions: number;
 }
 
-export type ReviewScope = "staged" | "file";
+export type ReviewScope = "staged" | "file" | "commit" | "branch";
 
 export const VALID_PROVIDERS = ["claude", "codex"] as const;
 
