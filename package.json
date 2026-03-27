@@ -1,6 +1,6 @@
 {
   "name": "opendiffs",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "AI-powered code review from the terminal",
   "bin": {
     "opendiffs": "./out/src/cli.js"
